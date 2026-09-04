@@ -1,0 +1,111 @@
+#!/bin/bash
+
+# Created by Foxlord
+# June 30, 2026
+
+joinByChar() 
+{
+	local IFS="$1"
+	shift
+	echo "$*"
+}
+
+# Get an element from a simulated 2D array.
+get_element() 
+{
+	# The first parameter is the base array, the second is the row,
+	#+ and the third is the column.
+	local alpharaw
+	local row
+	local col
+	local sep
+
+	alpharaw="$1"
+	row="$2"
+	col="$3"
+	sep="${4:-,}"
+
+	local alpharow alpharows
+	IFS=$'\n' readarray -t alpharows < <(printf '%s' "$alpharaw")
+
+	# If the number of rows is greater than or equal to the number of
+	#+elements in alpharows, someone fricked up.
+	if [[ $row -ge ${#alpharows[@]} ]]; then
+		echo "Bad row."
+		unset IFS
+		return
+	fi
+	
+	# Set the separation filter to the value of the fourth variable.
+	#+Then, set alpharow <row> element of alpharows.
+	IFS="$sep" read -ra alpharow < <(printf '%s' "${alpharows[$row]}")
+
+	# If the number of elements in in alpharow is greater than or equal to
+	#+<col>, someone also fricked up.
+	if [[ $col -ge ${#alpharow[@]} ]]; then
+		echo "Bad column."
+		unset IFS
+		return
+	fi
+	echo "${alpharow[$col]}"
+	unset IFS
+}
+
+set_element()
+{
+	local alpharaw
+	local row
+	local col
+	local repl
+	local sep
+
+	# The array to be modified.
+	alpharaw="$1"
+
+	# The row to modify.
+	row="$2"
+
+	# The column to modify.
+	col="$3"
+
+	# The new element to replace the one at [row][col].
+	repl="$4"
+
+	# The separator. Not mandatory, defaults to comma.
+	sep="${5:-,}"
+
+	local alpharow alpharows
+	IFS=$'\n' readarray -t alpharows < <(printf '%s' "$alpharaw")
+
+	# If the number of rows is greater than or equal to the number of
+	#+elements in alpharows, someone fricked up.
+	if [[ $row -ge ${#alpharows[@]} ]]; then
+		echo "Bad row."
+		unset IFS
+		return
+	fi
+	
+	# Set the separation filter to the value of the fourth variable.
+	#+Then, set alpharow <row> element of alpharows.
+	IFS="$sep" read -ra alpharow < <(printf '%s' "${alpharows[$row]}")
+
+	# If the number of elements in in alpharow is greater than or equal to
+	#+<col>, someone also fricked up.
+	if [[ $col -ge ${#alpharow[@]} ]]; then
+		echo "Bad column."
+		unset IFS
+		return
+	fi
+
+	alpharow[$col]="$repl"
+	#echo ${alpharow[@]}
+	alpharows[$row]=`joinByChar "$sep" "${alpharow[@]}"`
+	# Source - https://stackoverflow.com/a/30339329
+	# Posted by Zombo, modified by community. See post 'Timeline' for change history
+	# Retrieved 2026-07-01, License - CC BY-SA 3.0
+	for each in "${alpharows[@]}"
+	do
+	  echo "$each"
+	done
+	unset IFS
+}

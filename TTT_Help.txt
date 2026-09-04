@@ -1,0 +1,21 @@
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓        
+┃                            TIC TAC TERMINAL                             ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╥─────╥━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│                          ╔══════╩═════╩══════╗                          │
+│                          ║ A Game by Foxlord ║                          │
+│                          ╚═══════════════════╝                          │
+│                 You know how to play Tic Tac Toe, right?                │
+│                ┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄               │
+│ I reckon you do, so we'll skip that. Here's the extra options. Enter    │
+│ these when prompted for your move to get their effects.                 │
+│                                                                         │
+│ -q│ Quit the game                                                       │
+│ ──┘                                                                     │
+│                                                                         │
+│ -r│ Restart the game.                                                   │
+│ ──┘                                                                     │
+│                                                                         │
+│ -h│ Hide this text. Input again to bring it back.                       │
+│ ──┘                                                                     │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘        

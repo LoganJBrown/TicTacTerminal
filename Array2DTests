@@ -1,0 +1,56 @@
+#!/bin/bash
+
+# Created by Foxlord
+# July 1, 2026
+
+source Array2D
+
+pwd
+
+my_arr='1,2,3,4
+5,,7,8
+,10,11,12
+13,,,16'
+
+echo "Array2D will now be tested
+Expect indices 0-3 to be valid and match with the values in my_arr.
+Expect index 4 to always be invalid.
+"
+
+echo "my_arr=$my_arr"
+
+for i in {0..4}; do
+	for j in {0..4}; do
+		echo my_arr[$i][$j]=`get_element "$my_arr" $i $j`
+	done
+done
+
+echo my_arr[3][2] should be set to 15. Nothing else should change.
+my_arr="$(set_element "$my_arr" 3 2 15)"
+echo "$my_arr"
+
+echo my_arr[3][2] should be back to null.
+my_arr="$(set_element "$my_arr" 3 2 "")"
+echo "$my_arr"
+
+echo my_arr[2][0] should be set to 9. Nothing else should change.
+my_arr="$(set_element "$my_arr" 2 0 9)"
+echo "$my_arr"
+
+echo my_arr[2][0] should be back to null.
+my_arr="$(set_element "$my_arr" 2 0 "")"
+echo "$my_arr"
+
+echo Everything should be increased by 10.
+
+for i in {0..3}; do
+	for j in {0..3}; do
+                temp="$(set_element "$my_arr" $i $j $((`get_element "$my_arr" $i $j` + 10)))"
+#echo "my_arr=$my_arr"
+#echo "temp=$temp"
+		my_arr="$temp"
+	done
+done
+
+echo "my_arr=$my_arr"
+

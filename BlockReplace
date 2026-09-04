@@ -1,0 +1,36 @@
+#!/bin/bash
+
+# Created by Foxlord
+# July 10, 2026
+
+# Test for file existence.
+if [ ! -e "$1" ]; then
+	echo "Does Not Exist"
+#       exit 1
+fi	
+
+TOP_LEFT_X=0
+TOP_LEFT_Y=1
+WIDTH=4
+HEIGHT=3
+
+sed -r "${TOP_LEFT_Y},${HEIGHT}s/(.{$TOP_LEFT_X}).{$WIDTH}/\1<REPLACE>/" <<< "12345
+12345
+12345
+12345
+12345" > br_output.txt
+cat br_output.txt
+echo "After Replacement"
+
+line=$TOP_LEFT_Y
+# Spaces in IFS prevent grabbing spaces in the source text.
+IFS=$'\n'
+for r in $(cut -c -$WIDTH br_test.txt); do
+        sed -i -r "${line}s/<REPLACE>/$r/1" br_output.txt;
+	((line++))
+done
+unset IFS
+
+cat br_output.txt
+	
+

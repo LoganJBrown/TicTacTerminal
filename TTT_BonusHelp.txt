@@ -1,0 +1,10 @@
+║                                                                         ║
+║                               ╔═════════╗                               ║
+╠═══════════════════════════════╣ UNBOUND ╠═══════════════════════════════╣
+║                               ╚═════════╝                               ║
+║                             A Winner is You!                            ║
+║                          ┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅                         ║
+║ You've unlocked pro mode. Enter a number to the prompt when resetting   ║
+║ to generate a board with those dimensions.                              ║
+║                                                                         ║
+╚═════════════════════════════════════════════════════════════════════════╝

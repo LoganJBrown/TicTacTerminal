@@ -1,0 +1,490 @@
+#!/bin/bash
+
+# Created by Foxlord
+# July 1, 2026
+
+source Array2D
+
+#  Set to anything other than 0 to get debug info.
+#+ Note that this does not mean I'm any good at providing debugging info that's
+#+ useful to anyone but me.
+DEBUG_TICTACTOE=0
+#  Set to print out debug info for win_check
+DEBUG_SCORE=0
+#  Set to print out debug info for init
+DEBUG_INIT=0
+
+# Whether or not to print the help text with the board.
+TOGGLE_HELP=1
+# Unlocks the dimension selection mode.
+UNBOUND=0
+
+declare -A coords
+coords[0]="0,0"
+coords[1]="1,0"
+coords[2]="2,0"
+coords[3]="0,1"
+coords[4]="1,1"
+coords[5]="2,1"
+coords[6]="0,2"
+coords[7]="1,2"
+coords[8]="2,2"
+
+unset board_slots
+declare -A board_slots
+for i in $(seq 0 8); do
+	board_slots["$i"]="$i"	
+done
+
+DIMENSIONS=3
+
+board="0,1,2
+3,4,5
+6,7,8"
+
+init()
+{
+	clear
+	# If the player has won once, allow size selection.
+	if (($UNBOUND)); then
+		unset IFS
+		input=""
+		while [ ${#input} -lt 1 ]; do
+			read -r -p "Select your board size: " input
+			# Affirm that input is a positive digit.
+			if (( `grep -P -c "[^\s\d]+" <<< "$input"` > 0 )) then
+				echo "Input must be a number greater than or equal to 2."
+				input=""
+				continue
+			fi
+			if [ $input -lt 2 ]; then
+				echo "Input must be a number greater than or equal to 2."
+				input=""
+				continue
+			fi
+		done
+		DIMENSIONS=$input
+	fi
+	
+	if (($DEBUG_INIT)); then echo "board_slots default: ${board_slots[@]}"; fi
+	if (($DEBUG_INIT)); then echo "coords default: ${coords[@]}"; fi
+	# Clear board_slots
+	board_slots=()
+	
+	./TTT_BoardGenerator $DIMENSIONS
+
+	# The coordinates used for the 2D array indices.
+	coordX=0
+	coordY=0
+
+	# Brochachos, I do not understand why seq keeps breaking if I don't do this.
+	unset IFS
+	for i in `seq 0 $((DIMENSIONS*DIMENSIONS-1))`; do
+        	if (($DEBUG_INIT)); then echo "coords[$i]: $coordX,$coordY"; fi
+		coords[$i]="$coordX,$coordY"
+		# Logically, think of this as DIMENSIONS - 1 + 1 since it's looking one ahead of the max x value.
+		(( coordY+=(coordX+1)/DIMENSIONS ))
+		(( coordX=(coordX+1)%DIMENSIONS ))
+
+		board_slots["$i"]="$i"	
+	done 	
+	
+	# Clear and remake the board
+	board=""
+	local boardCounter=0
+	for i in `seq 0 $((DIMENSIONS-1))`; do
+		for j in `seq 0 $((DIMENSIONS-2))`; do
+			board+="$boardCounter,"
+			((boardCounter++))
+		done
+		board+="$boardCounter
+"
+		((boardCounter++))
+	done
+
+	if (($DEBUG_INIT)); then 
+		for j in ${!board_slots[@]}; do
+			echo "board_slots[$j] init: ${board_slots[$j]}"
+		done
+	fi
+	if (($DEBUG_INIT)); then echo "coords init: ${coords[@]}"; fi
+}
+
+draw_board()
+{
+	clear
+	# Print out the help text.
+	if (($TOGGLE_HELP)); then cat TTT_Help.txt; fi
+	if (($UNBOUND && $TOGGLE_HELP)); then cat TTT_BonusHelp.txt; fi
+
+	# Go into the file for the board and read through all the lines.
+	#+ Stop when you encounter a literal $ character. When that happens,
+	#+ increment the count variable and use that to get the corresponding
+	#+ character from the board_slots variable.
+	local IFS=
+	local count=0
+	# This is necessary for the pure bash dollar counting method.
+	local temp
+	# These are for padding.
+	local spaces="          "
+	local maxChars=$(echo -n $((DIMENSIONS*DIMENSIONS)) | wc -c)
+
+	while read -r line; do
+		# While there's still $ characters in the line . . .
+		while [ $(temp=${line//[^$]}; echo ${#temp}) -gt 0 ]; do
+			padCount="${board_slots[$count]}$spaces"
+			line=$(sed -r "s/\\$+/${padCount:0:$maxChars}/" <<< "$line")
+			((count++)) 
+		done
+		echo "$line"
+	done < TTT_BoardOutput.txt
+	echo ""
+}
+
+#  The CPU player selects a random unselected spot and plays there.
+rand_coord()                  
+{
+	declare -A spaces
+	local counter=0                                            
+	local IFS=,;
+
+	y=0
+	endY=$((DIMENSIONS-1))
+	while [ $y -le $endY ]; do
+		x=0
+		endX=$((DIMENSIONS-1))
+		while [ $x -le $endX ]; do
+        		to_check=`get_element "$board" $y $x`
+        		if (($DEBUG_TICTACTOE)); then
+        			grep -P -c "\d+" <<< "$to_check"
+			fi
+
+        		if (( `grep -P -c "\d+" <<< "$to_check"` != 0 ))
+        		then
+        			spaces[$counter]="$x,$y"
+        			((counter++))
+        		fi
+			
+			x=$((x+1))
+		done
+		y=$((y+1))
+	done
+
+        local num_spaces=${#spaces[@]}
+	if (( ! num_spaces )) then return; fi
+	local rand_slot="$(($RANDOM % $num_spaces))"
+
+	read -r randX randY <<< "${spaces[$rand_slot]}" 
+
+	if (($DEBUG_TICTACTOE)) 
+	then
+		echo "Num Spaces: $num_spaces"
+
+		echo "Spaces and their keys:"
+		for s in ${!spaces[@]}; do
+			echo "$s: ${spaces[$s]}"
+		done
+
+		echo "rand_slot: $rand_slot"
+		echo "randX=$randX"
+		echo "randY=$randY"
+
+	fi
+	
+	board="$(set_element "$board" $randY $randX O)"
+	local display_slot=$(($randY*$DIMENSIONS + $randX))
+	board_slots[$display_slot]="O"
+}
+
+#  Use the return status to determine if an attempted play is permissible.
+is_pos_valid()
+{
+	local pos=$1
+	local max=$((DIMENSIONS*DIMENSIONS-1))
+	
+	# Affirm that pos is a digit.
+	if (( `grep -P -c "[^\s\d]+" <<< "$pos"` > 0 ))
+	then
+		echo "Input must be a number between 0-$max"
+		return 1
+	fi
+
+	# Affirm that pos is between 0 and max.
+	if (( $pos > $max || $pos < 0 ))
+	then
+		echo "Input must be a number between 0-$8"
+		return 1
+	fi
+
+	# Affirm that pos is not taken.
+	local x y
+	local IFS=,
+	read -r x y <<< "${coords[$pos]}"
+	local to_check=`get_element "$board" $y $x`
+	if (( `grep -P -c "[^\s\d]+" <<< "$to_check"` > 0 ))
+	then
+		echo "Position $pos is already occupied by $to_check"
+		return 1
+	fi
+	
+	return 0
+}
+
+# Check for victory.
+win_check()
+{
+	# If I don't do this, seq doesn't get split into its individual numbers
+	unset IFS
+
+	# Debug stuff.
+	##################################################
+	if ((DEBUG_SCORE)); then
+		echo -e "Begin win_check Debug Info . . .\n"
+
+		# All Rows
+		for row in $(seq 0 $(( DIMENSIONS-1 )) ); do
+			echo -n "Row $((row+1)): "
+			for col in $(seq 0 $(( DIMENSIONS-1 )) ); do
+				echo -n "`get_element "$board" $row $col` " 	
+			done 
+			echo
+		done
+
+		# All Columns
+		for col in $(seq 0 $(( DIMENSIONS-1 )) ); do
+			echo -n "Column $((col+1)): "
+			for row in $(seq 0 $(( DIMENSIONS-1 )) ); do
+				echo -n "`get_element "$board" $row $col` " 	
+			done 
+			echo
+		done
+
+		echo -n "Diagonal 1: "
+		for n in $(seq 0 $(( DIMENSIONS-1 )) ); do
+			echo -n "`get_element "$board" $n $n` " 	
+		done
+
+		echo
+
+		echo -n "Diagonal 2: "
+		for n in $(seq 0 $(( DIMENSIONS-1 )) ); do
+			echo -n "`get_element "$board" $n $(( DIMENSIONS-n-1 ))` " 	
+		done
+
+		echo -e "\n\nEnd win_check Debug Info"
+		for i in {0..50}; do echo -n "="; done
+		echo
+	fi
+	##################################################
+
+	local IS_WIN
+	local LAST_POS
+	local THIS_POS
+
+	# Loop through each row.
+	for row in $( seq 0 $(( DIMENSIONS-1 )) ); do
+		IS_WIN=0
+		LAST_POS=$( get_element "$board" $row 0 )
+
+		# Loop through every column in each row.
+		for col in $(seq 0 $(( DIMENSIONS-1 )) ); do
+			THIS_POS=`get_element "$board" $row $col`  	
+
+			# If any column in this row isn't equal to the one
+			#+ preceding it, this row isn't a win. Mark it as
+			#+ such and stop checking this row.
+			if [[ $THIS_POS != $LAST_POS ]]; then
+				IS_WIN=1
+				break
+			fi
+			LAST_POS=$THIS_POS
+		done 
+
+		if [ $IS_WIN -eq 0 ]; then 
+			echo "r${row}$(get_element "$board" $row $col)"
+			return 0
+		fi
+
+	done
+
+	# Loop through each column.
+	for col in $(seq 0 $(( DIMENSIONS-1 )) ); do
+		IS_WIN=0
+		LAST_POS=`get_element "$board" 0 $col`
+
+		# Loop through each row in this column.
+		for row in $(seq 0 $(( DIMENSIONS-1 )) ); do
+			THIS_POS=`get_element "$board" $row $col`  	
+
+			# If any row in this column isn't equal to the one
+			#+ preceding it, this column isn't a win. Mark it as
+			#+ such and stop checking this column.
+			if [[ $THIS_POS != $LAST_POS ]]; then
+				IS_WIN=1
+				break
+			fi
+			LAST_POS=$THIS_POS
+		done 
+
+		if [ $IS_WIN -eq 0 ]; then 
+			echo "c$col$(get_element "$board" $row $col)"
+			return 0
+		fi
+	done
+
+	IS_WIN=0
+	LAST_POS=`get_element "$board" 0 0`
+	for n in $(seq 0 $(( DIMENSIONS-1 )) ); do
+		THIS_POS=`get_element "$board" $n $n` 	
+		if [[ $THIS_POS != $LAST_POS ]]; then
+			IS_WIN=1
+			break
+		fi
+		LAST_POS=$THIS_POS
+	done
+
+	if [ $IS_WIN -eq 0 ]; then 
+		echo "d1$( get_element "$board" 0 0 )"
+		return 0
+	fi
+
+	IS_WIN=0
+	LAST_POS=`get_element "$board" 0 $(( DIMENSIONS-1 ))`
+	for n in $(seq 0 $(( DIMENSIONS-1 )) ); do
+		THIS_POS=`get_element "$board" $n $(( DIMENSIONS-n-1))` 	
+		if [[ $THIS_POS != $LAST_POS ]]; then
+			IS_WIN=1
+			break
+		fi
+		LAST_POS=$THIS_POS
+	done
+
+	if [ $IS_WIN -eq 0 ]; then 
+		echo "d2$( get_element "$board" 0 $(( DIMENSIONS-1 )) )"
+		return 0
+	fi
+	
+	# If nobody won, return a failure exit status.
+	return 1
+}
+
+# Handle options prefixed by a dash passed to the game loop.
+handle_options()
+{
+	if [ -z $1 ]; then
+		echo "Missing Parameter (should be string)" >&2
+		return 1
+	fi
+	
+	# This is all the valid options.
+	case "$1" in
+	# Quit
+	"q")
+		exit 0
+	;;
+	# Restart
+	"r")
+		init
+		draw_board
+		return 0
+	;;
+	# Toggle Help
+	"h")
+		TOGGLE_HELP=$(( ! TOGGLE_HELP ))
+		draw_board
+		return 0
+	;;
+	*)
+		echo "Not a Command"
+		return 0
+	;;
+	esac
+}
+
+finish()
+{
+	if [ -z $1 ]; then
+		echo "Missing Parameter (should be string)" >&2
+		return 1
+	fi
+	
+	local line
+	local lineNum
+	local player
+	
+	unset IFS
+	{ read -r line && read -r player; } <<< $(echo $1 | grep -P -o "[A-Za-z]+")
+	read -r lineNum <<< $(echo $1 | grep -P -o "\d+") 
+	
+	echo -n "Player $player won on "
+	
+	# Handle what kind of win this is.
+	case "$line" in
+	"r")
+      		echo -n "Row "  		
+		;;
+	"c")
+      		echo -n "Column "  		
+		;;
+	"d")
+      		echo -n "Diagonal "  		
+		;;
+	*)
+		echo >&2 "Bad Win: Line: $line lineNum: $lineNum player: $player" 
+		return 1
+		;;
+	esac	
+	
+	echo $(( lineNum+1 ))
+	
+	if ((! $UNBOUND)); then
+		echo "YOU HAVE BECOME UNBOUND"	
+		UNBOUND=1
+	fi
+	read -n 1 -s -r -p "Press any key to continue"
+}
+
+# The main game loop.
+main()
+{
+	draw_board
+
+	IFS=,
+	while (( $(echo "$board" | grep -P -o "\d+" | wc -l) > 0 )); do
+		read -p "Choose Position: " temp
+
+		if [[ "${temp:0:1}" == "-" ]]; then
+			handle_options "${temp:1:1}"
+			continue
+		fi
+
+		if ! is_pos_valid $temp; then
+			continue
+		fi
+		
+		read -r xpossy ypossy <<< "${coords[$temp]}" 
+		board="$(set_element "$board" $ypossy $xpossy X)"
+		board_slots[$temp]="X"
+
+		if checky=$(win_check); then
+			break
+		fi
+
+		rand_coord
+		draw_board
+		if checky=$(win_check); then
+			break
+		fi
+	done
+	
+	finish "$checky"
+	unset IFS
+}
+
+#win_check
+
+PLAYING=1
+while ((PLAYING)); do 
+	init
+	main
+done

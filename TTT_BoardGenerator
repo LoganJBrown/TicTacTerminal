@@ -1,0 +1,54 @@
+#!/bin/bash
+
+# Created by Foxlord
+# July 28, 2026
+
+unset IFS
+
+# The dimensions of the box.
+#+ Can be parameter-specified, defaults to 4.
+DIMS=${1:-4}
+
+# Affirm that DIMS is a digit.
+if (( `grep -P -c "[^\s\d]+" <<< "$DIMS"` > 0 ))
+then
+	echo "Input must be a number greater than or equal to 2." >&2
+	return 1
+fi
+
+# Affirm that DIMS is a valid size.
+if [ $DIMS -lt 2 ]; then
+	echo "Minimum board size is 2x2" >&2
+	return 1
+fi
+
+# The number of characters in the largest box space.
+CHARS=$( echo -n "$((DIMS*DIMS))" | wc -m)
+
+# How many horizontal lines are needed.
+HORI_SEP=""
+# How many literal $ characters will be used as number placeholders.
+PLACEHOLDER=""
+for i in `seq $CHARS`; do
+	HORI_SEP+="─"
+	PLACEHOLDER+="\$"
+done 
+
+# Create an empty file if it doesn't exist, wipe it if it does.
+echo -n "" > TTT_BoardOutput.txt
+for y in `seq $((DIMS-1))`; do
+	for x in `seq $((DIMS-1))`; do
+		echo -n " $PLACEHOLDER │" >> TTT_BoardOutput.txt
+	done
+	echo " $PLACEHOLDER" >> TTT_BoardOutput.txt
+
+	for x in `seq $((DIMS-1))`; do
+		echo -n "─${HORI_SEP}─┼" >> TTT_BoardOutput.txt
+	done
+	echo "─${HORI_SEP}─" >> TTT_BoardOutput.txt
+done
+
+for x in `seq $((DIMS-1))`; do
+	echo -n " $PLACEHOLDER │" >> TTT_BoardOutput.txt
+done
+echo " $PLACEHOLDER" >> TTT_BoardOutput.txt
